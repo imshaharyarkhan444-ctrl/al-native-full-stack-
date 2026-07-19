@@ -1,0 +1,55 @@
+// DocFlow Prisma schema
+// Local dev: SQLite (file-based, zero external dependency)
+// Deployed: swap provider to "postgresql" and DATABASE_URL to a hosted Postgres
+// (Neon/Supabase) or use Turso's LibSQL driver. Schema uses only types/features
+// that are portable to Postgres (String, DateTime, relations) so the swap is
+// a config change, not a schema rewrite. See ARCHITECTURE.md.
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  color     String   @default("#6366f1") // used for avatar badges in the UI
+  createdAt DateTime @default(now())
+
+  documents Document[] @relation("OwnedDocuments")
+  shares    Share[]
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @default("{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}")
+  // ^ TipTap JSON stored as a serialized string column for SQLite portability.
+  //   On Postgres this could become a native Json column without changing app code much.
+  ownerId   String
+  owner     User     @relation("OwnedDocuments", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shares Share[]
+
+  @@index([ownerId])
+}
+
+model Share {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission String   @default("edit") // "edit" | "view" — see ARCHITECTURE.md for the decision
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, userId]) // a document can only be shared once per user
+  @@index([userId])
+}

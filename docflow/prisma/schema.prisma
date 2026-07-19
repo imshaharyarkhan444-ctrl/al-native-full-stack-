@@ -6,7 +6,7 @@
 // a config change, not a schema rewrite. See ARCHITECTURE.md.
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
